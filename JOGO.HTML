@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Jogo Matemático PRO</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  font-family: Arial;
+  background: linear-gradient(135deg, #1e3c72, #2a5298);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  color: white;
+}
+
+.container {
+  background: #ffffff10;
+  backdrop-filter: blur(10px);
+  padding: 25px;
+  border-radius: 15px;
+  width: 350px;
+  text-align: center;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+}
+
+button {
+  background: #00c9ff;
+  color: black;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #92fe9d;
+}
+
+.question {
+  font-size: 28px;
+  margin: 20px 0;
+}
+
+.progress {
+  height: 10px;
+  background: #444;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 100%;
+  background: lime;
+}
+
+.result {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.ranking {
+  margin-top: 10px;
+  font-size: 14px;
+  text-align: left;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🧠 Jogo Matemático PRO</h2>
+
+<input type="text" id="player" placeholder="Seu nome">
+
+<select id="difficulty">
+  <option value="easy">Fácil</option>
+  <option value="medium">Médio</option>
+  <option value="hard">Difícil</option>
+</select>
+
+<button onclick="startGame()">Iniciar</button>
+
+<div class="question" id="question">---</div>
+
+<input type="number" id="answer" placeholder="Resposta">
+
+<button onclick="checkAnswer()">Responder</button>
+
+<div class="progress">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+
+<div class="result" id="result"></div>
+
+<p>⏱️ Tempo: <span id="time">10</span></p>
+<p>🏆 Pontos: <span id="score">0</span></p>
+
+<div class="ranking" id="ranking"></div>
+
+<button onclick="resetGame()">Reiniciar</button>
+
+</div>
+
+<script>
+let num1, num2, operator, correctAnswer;
+let score = 0;
+let timeLeft = 10;
+let timer;
+let playerName = "";
+let audioContext;
+
+// 🔊 INICIALIZA O ÁUDIO QUANDO O USUÁRIO INTERAGE
+function initAudio() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+// 🔊 SOM PROFISSIONAL COM WEB AUDIO API
+function playSound(correct) {
+  if (!audioContext) return;
+
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  if (correct) {
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+  } else {
+    oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+  }
+
+  oscillator.type = "sine";
+
+  gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(
+    0.001,
+    audioContext.currentTime + 0.4
+  );
+
+  oscillator.start();
+  oscillator.stop(audioContext.currentTime + 0.4);
+}
+
+function startGame() {
+  initAudio(); // ativa áudio
+  playerName = document.getElementById("player").value || "Jogador";
+  score = 0;
+  updateScore();
+  generateQuestion();
+  startTimer();
+  loadRanking();
+}
+
+function generateQuestion() {
+  let difficulty = document.getElementById("difficulty").value;
+  let max = difficulty === "easy" ? 10 : difficulty === "medium" ? 50 : 100;
+
+  num1 = Math.floor(Math.random() * max) + 1;
+  num2 = Math.floor(Math.random() * max) + 1;
+
+  let ops = ["+", "-", "*", "/"];
+  operator = ops[Math.floor(Math.random() * 4)];
+
+  if (operator === "/") {
+    correctAnswer = num1;
+    num1 = num1 * num2;
+  }
+
+  correctAnswer = eval(`${num1} ${operator} ${num2}`);
+
+  document.getElementById("question").innerText =
+    `${num1} ${operator} ${num2}`;
+
+  document.getElementById("answer").value = "";
+}
+
+function checkAnswer() {
+  let user = Number(document.getElementById("answer").value);
+
+  if (user === correctAnswer) {
+    score++;
+    showResult("✅ Acertou!", "lime");
+    playSound(true);
+  } else {
+    showResult(`❌ ${correctAnswer}`, "red");
+    playSound(false);
+  }
+
+  updateScore();
+  generateQuestion();
+  resetTimer();
+}
+
+function showResult(text, color) {
+  let el = document.getElementById("result");
+  el.innerText = text;
+  el.style.color = color;
+}
+
+function updateScore() {
+  document.getElementById("score").innerText = score;
+}
+
+function startTimer() {
+  timeLeft = 10;
+  updateTimer();
+
+  timer = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+
+    let percent = (timeLeft / 10) * 100;
+    document.getElementById("progressBar").style.width = percent + "%";
+
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function updateTimer() {
+  document.getElementById("time").innerText = timeLeft;
+}
+
+function resetTimer() {
+  clearInterval(timer);
+  startTimer();
+}
+
+function endGame() {
+  clearInterval(timer);
+  saveScore();
+  alert(`Fim de jogo, ${playerName}! Pontos: ${score}`);
+}
+
+function resetGame() {
+  clearInterval(timer);
+  score = 0;
+  updateScore();
+  document.getElementById("question").innerText = "---";
+}
+
+function saveScore() {
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+
+  ranking.push({ name: playerName, score });
+
+  ranking.sort((a, b) => b.score - a.score);
+  ranking = ranking.slice(0, 5);
+
+  localStorage.setItem("ranking", JSON.stringify(ranking));
+  loadRanking();
+}
+
+function loadRanking() {
+  let ranking = JSON.parse(localStorage.getItem("ranking")) || [];
+  let html = "<h4>🏆 Ranking</h4>";
+
+  ranking.forEach((p, i) => {
+    html += `${i+1}. ${p.name} - ${p.score}<br>`;
+  });
+
+  document.getElementById("ranking").innerHTML = html;
+}
+
+// ENTER para responder
+document.getElementById("answer").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") checkAnswer();
+});
+</script>
+
+</body>
+</html>
